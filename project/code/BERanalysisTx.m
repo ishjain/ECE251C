@@ -17,22 +17,13 @@ MOD_ORDER               = 4;           % Modulation order (2/4/16/64 = BSPK/QPSK
 TX_SCALE                = 1.0;          % Scale for Tx waveform ([0:1])
 
 % OFDM params
-N_SC                    = 64;                                     % Number of subcarriers
+N_SC                    = 64;                                     % Number of subcarriers/channels
 CP_LEN                  = 16;                                     % Cyclic prefix length
 INTERP_RATE             = 2;                                      % Interpolation rate (must be 2)
 SAMP_FREQ           = 1e9;%20e6;
 
 
-%% STS and LTS 
-
-% Define the preamble
-sts_f = zeros(1,64);
-sts_f(1:27) = [0 0 0 0 -1-1i 0 0 0 -1-1i 0 0 0 1+1i 0 0 0 1+1i 0 0 0 1+1i 0 0 0 1+1i 0 0];
-sts_f(39:64) = [0 0 1+1i 0 0 0 -1-1i 0 0 0 1+1i 0 0 0 -1-1i 0 0 0 -1-1i 0 0 0 1+1i 0 0 0];
-sts_t = ifft(sqrt(13/6).*sts_f, 64);
-sts_t = sts_t(1:16);
-
-% LTS for CFO and channel estimation
+%% LTS for channel estimation
 
 lts_f = [0 1 -1 -1 1 1 -1 1 -1 1 -1 -1 -1 -1 -1 1 1 -1 -1 1 -1 1 -1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 1 1 -1 -1 1 1 -1 1 -1 1 1 1 1];
 SC_IND_PILOTS           = [8 22 44 58];                           % Pilot subcarrier indices
@@ -40,9 +31,8 @@ SC_IND_DATA             = [2:7 9:21 23:27 39:43 45:57 59:64];     % Data subcarr
 N_DATA_SYMS             = N_OFDM_SYMS * length(SC_IND_DATA);      % Number of data symbols (one per data-bearing subcarrier per OFDM symbol)
 lts_t = ifft(lts_f, N_SC);
 
-% Use 30 copies of the 16-sample STS: used for packet detection and channel
-% estimation.
-preamble = [repmat(sts_t, 1, 30)  lts_t(N_SC/2+1:N_SC) lts_t lts_t];
+% Preamble contains 2.5 times lts for channel estimation
+preamble = [ lts_t(N_SC/2+1:N_SC) lts_t lts_t];
 
 %% Generate a payload of random integers
 tx_data = randi(MOD_ORDER, 1, N_DATA_SYMS) - 1;
@@ -91,39 +81,47 @@ ifft_in_mat = zeros(N_SC, N_OFDM_SYMS);
 ifft_in_mat(SC_IND_DATA, :)   = tx_syms_mat;
 ifft_in_mat(SC_IND_PILOTS, :) = pilots_mat;
 
-%Perform the IFFT
-tx_payload_mat = ifft(ifft_in_mat, N_SC, 1);
-
-% Insert the cyclic prefix
-if(CP_LEN > 0)
-    tx_cp = tx_payload_mat((end-CP_LEN+1 : end), :);
-    tx_payload_mat = [tx_cp; tx_payload_mat];
+doFBMC=0;
+if(doFBMC)
+    %     take ifft_in_mat 64x100 for 64 channels and 100 time samples
+    %     and return tx_payload_mat (80x100 for OFDM)
+    W = exp(-1j*2*pi/N_SC);
+    f0 = [1,2,3,4,3,5,1]; % Some arbitrary prototype filter
+    %%--A channel synthesizer in direct form
+    % Loop over each channel
+    for idx = 1:N_SC
+        k = idx-1;
+        f(idx,:) = f0.*W.^(-k*[0:length(f0)-1]); % The filter
+        w(idx,:) = upsample(ifft_in_mat(idx,:),N_SC); % The symbols after upsampling
+        p(idx,:) = conv(w(idx,:),f(idx,:)); % The filtered symbols
+    end
+    tx_payload_mat = sum(p); % Sum over all channels
+    
+    % Reshape to a vector
+    tx_payload_vec = reshape(tx_payload_mat, 1, numel(tx_payload_mat));
+    
+else
+    %Perform the IFFT
+    tx_payload_mat = ifft(ifft_in_mat, N_SC, 1);
+    
+    % Insert the cyclic prefix
+    if(CP_LEN > 0)
+        tx_cp = tx_payload_mat((end-CP_LEN+1 : end), :);
+        tx_payload_mat = [tx_cp; tx_payload_mat];
+    end
+    % Reshape to a vector
+    tx_payload_vec = reshape(tx_payload_mat, 1, numel(tx_payload_mat));
 end
 
-% Reshape to a vector
-tx_payload_vec = reshape(tx_payload_mat, 1, numel(tx_payload_mat));
-PAYLOAD_LEN = length(tx_payload_vec);
 
 % Construct the full time-domain OFDM waveform
 tx_vec = [preamble tx_payload_vec];
 
-%% Resample the data at 25MHz
-% tx_vec_air = resample(tx_vec,60e9/SAMP_FREQ,1);
-
 tx_vec_air=tx_vec;
-% Scale the Tx vector to +/- 1
-tx_vec_air = TX_SCALE .* tx_vec_air ./ max(abs(tx_vec_air));
-
-% fftplot(tx_vec,5e6,120,'b',1);
-% fftplot(tx_vec_air, 60e6,120,'g',1);
-
 
 %% Plot Results
-if(~exist('wannaplot')), wannaplot=1; end
 
-if(wannaplot)
 figure;
-
 subplot(2,1,1);
 plot(real(tx_vec_air), 'b');
 axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
@@ -135,7 +133,7 @@ plot(imag(tx_vec_air), 'r');
 axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
 grid on;
 title('Tx Waveform (Q)');
-end 
+
 
 
 
