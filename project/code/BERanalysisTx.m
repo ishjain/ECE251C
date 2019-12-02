@@ -12,15 +12,15 @@ close all
 clear; close all;
 
 % Waveform params
-N_OFDM_SYMS             = 100;         % Number of OFDM symbols
-MOD_ORDER               = 4;           % Modulation order (2/4/16/64 = BSPK/QPSK/16-QAM/64-QAM)
-TX_SCALE                = 1.0;          % Scale for Tx waveform ([0:1])
+N_OFDM_SYMS             = 100;          % Number of OFDM symbols
+MOD_ORDER               = 16;           % Modulation order (2/4/16/64 = BSPK/QPSK/16-QAM/64-QAM)
+% TX_SCALE                = 1.0;          % Scale for Tx waveform ([0:1])
 
 % OFDM params
 N_SC                    = 64;                                     % Number of subcarriers/channels
 CP_LEN                  = 16;                                     % Cyclic prefix length
 INTERP_RATE             = 2;                                      % Interpolation rate (must be 2)
-SAMP_FREQ           = 1e9;%20e6;
+% SAMP_FREQ           = 1e9;%20e6;
 
 
 %% LTS for channel estimation
@@ -86,20 +86,38 @@ if(doFBMC)
     %     take ifft_in_mat 64x100 for 64 channels and 100 time samples
     %     and return tx_payload_mat (80x100 for OFDM)
     W = exp(-1j*2*pi/N_SC);
-    f0 = [1,2,3,4,3,5,1]; % Some arbitrary prototype filter
+    f0 = ones(N_SC+CP_LEN,1)/sqrt(N_SC); % Some arbitrary prototype filter
     %%--A channel synthesizer in direct form
     % Loop over each channel
-    for idx = 1:N_SC
-        k = idx-1;
-        f(idx,:) = f0.*W.^(-k*[0:length(f0)-1]); % The filter
-        w(idx,:) = upsample(ifft_in_mat(idx,:),N_SC); % The symbols after upsampling
-        p(idx,:) = conv(w(idx,:),f(idx,:)); % The filtered symbols
-    end
-    tx_payload_mat = sum(p); % Sum over all channels
+%     for idx = 1:N_SC
+%         k = idx-1;
+%         f(idx,:) = f0.*W.^(-k*[0:length(f0)-1]); % The filter
+%         w(idx,:) = upsample(ifft_in_mat(idx,:),N_SC); % The symbols after upsampling
+%         p(idx,:) = conv(w(idx,:),f(idx,:)); % The filtered symbols
+%     end
+%     tx_payload_mat = sum(p); % Sum over all channels
+%     
+%     % Reshape to a vector
+%     tx_payload_vec = reshape(tx_payload_mat, 1, numel(tx_payload_mat));
     
-    % Reshape to a vector
-    tx_payload_vec = reshape(tx_payload_mat, 1, numel(tx_payload_mat));
     
+    %%
+    S = ifft_in_mat;
+    M=N_SC;
+    FF = conj(dftmtx(M)); % The IDFT matrix
+repnum = ceil(length(f0)/M);
+Q = FF*S;
+% Q=ifft(S);
+Q = repmat(Q,repnum,1);
+Q = Q(end-N_SC-CP_LEN+1:end,:);
+Q = Q.*f0;
+move = N_SC+CP_LEN;
+for idx = 1:size(Q,2)
+    i = idx-1;
+    x4(idx,1:i*move+length(f0)) = [zeros(1,i*move),Q(:,idx).'];
+end
+tx_payload_vec = sum(x4);
+
 else
     %Perform the IFFT
     tx_payload_mat = ifft(ifft_in_mat, N_SC, 1);
@@ -124,13 +142,13 @@ tx_vec_air=tx_vec;
 figure;
 subplot(2,1,1);
 plot(real(tx_vec_air), 'b');
-axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
+% axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
 grid on;
 title('Tx Waveform (I)');
 
 subplot(2,1,2);
 plot(imag(tx_vec_air), 'r');
-axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
+% axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
 grid on;
 title('Tx Waveform (Q)');
 

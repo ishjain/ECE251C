@@ -111,13 +111,13 @@ cf = cf + 1;
 figure(cf); clf;
 subplot(2,1,1);
 plot(real(rx_vec_air), 'b');
-axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
+% axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
 grid on;
 title('Rx Waveform (I)');
 
 subplot(2,1,2);
 plot(imag(rx_vec_air), 'r');
-axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
+% axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
 grid on;
 title('Rx Waveform (Q)');
 

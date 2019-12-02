@@ -19,15 +19,15 @@ p_PHYDYAS_O4 = @(t,T0) ((t<=(4*T0/2))&(t>-4*T0/2)).*(1+2*(...
     ))/sqrt(4^2*T0);
 
 % PHYDYAS pulse for overlapping factor 8
-p_PHYDYAS_O8 = @(t,T0) ((t<=(8*T0/2))&(t>-8*T0/2)).*(1+2*(...
-    0.99932588 * cos(2*pi*1/8*t/T0) + ...
-    0.98203168 * cos(2*pi*2/8*t/T0) + ...
-    0.89425129 * cos(2*pi*3/8*t/T0) + ...
-    sqrt(2)/2  * cos(2*pi*4/8*t/T0) + ...
-    0.44756522 * cos(2*pi*5/8*t/T0) + ...
-    0.18871614 * cos(2*pi*6/8*t/T0) + ...
-    0.03671221 * cos(2*pi*7/8*t/T0) ...
-    ))/sqrt(8^2*T0);
+% p_PHYDYAS_O8 = @(t,T0) ((t<=(8*T0/2))&(t>-8*T0/2)).*(1+2*(...
+%     0.99932588 * cos(2*pi*1/8*t/T0) + ...
+%     0.98203168 * cos(2*pi*2/8*t/T0) + ...
+%     0.89425129 * cos(2*pi*3/8*t/T0) + ...
+%     sqrt(2)/2  * cos(2*pi*4/8*t/T0) + ...
+%     0.44756522 * cos(2*pi*5/8*t/T0) + ...
+%     0.18871614 7.934249631012864e-08 - 8.208809704409487e-18i* cos(2*pi*6/8*t/T0) + ...
+%     0.03671221 * cos(2*pi*7/8*t/T0) ...
+%     ))/sqrt(8^2*T0);
 
 % Root raised cosine filter in time (low latency)
 p_timeRRC = @(t,T0) ((t<=(T0/2))&(t>-T0/2)).*sqrt(1+(...
@@ -64,40 +64,58 @@ p_PulseDelayMod = @(t,T0,l,k,F) p_PHYDYAS_O4(t-k*T0,T0).*exp(1j*2*pi*l*F*(t-k*T0
 p_Ambiguity = @(t,T0,k1,k2,l1,l2,F) p_PulseDelayMod(t,T0,l1,k1,F).*conj(p_PulseDelayMod(t,T0,l2,k2,F));
 
 %% Plot Filters
-T0  = 1/F; % Frame interval
-t   = (-200*T0/2:dt:(200*T0/2)).'; t(end)=[]; % so that fft becomes real
-
-% Time domain
-% p_PHYDYAS_O4_Samples    = p_PHYDYAS_O4(t,T0);
-% p_PHYDYAS_O8_Samples    = p_PHYDYAS_O8(t,T0);
-% p_timeRRC_Samples       = p_timeRRC(t,T0);
-% p_Hermite_Samples       = p_Hermite(t,T0);
-p_Rectangular_Samples   = p_Rectangular(t,T0);
-% p_RectCaller_Samples   = p_RectCaller(t,T0);
-p_Ambiguity_Samples = p_Ambiguity(t,T0,1,0,2,0,F);
-
-% Plot the prototype filters in time
-figure();
-% plot(t/T0,p_PHYDYAS_O8_Samples*sqrt(T0),'red');
+% T0  = 1/F; % Frame interval
+% t   = (-200*T0/2:dt:(200*T0/2)).'; t(end)=[]; % so that fft becomes real
+% 
+% % Time domain
+% % p_PHYDYAS_O4_Samples    = p_PHYDYAS_O4(t,T0);
+% % p_PHYDYAS_O8_Samples    = p_PHYDYAS_O8(t,T0);
+% % p_timeRRC_Samples       = p_timeRRC(t,T0);
+% % p_Hermite_Samples       = p_Hermite(t,T0);
+% p_Rectangular_Samples   = p_Rectangular(t,T0);
+% % p_RectCaller_Samples   = p_RectCaller(t,T0);
+% p_Ambiguity_Samples = p_Ambiguity(t,T0,1,0,2,0,F);
+% 
+% % Plot the prototype filters in time
+% figure();
+% % plot(t/T0,p_PHYDYAS_O8_Samples*sqrt(T0),'red');
+% % hold on;
+% % plot(t/T0,p_timeRRC_Samples*sqrt(T0),'magenta');
+% % plot(t/T0,p_Hermite_Samples*sqrt(T0),'blue');
+% plot(t/T0,p_Rectangular_Samples*sqrt(T0),'black');
 % hold on;
-% plot(t/T0,p_timeRRC_Samples*sqrt(T0),'magenta');
-% plot(t/T0,p_Hermite_Samples*sqrt(T0),'blue');
-plot(t/T0,p_Rectangular_Samples*sqrt(T0),'black');
-hold on;
-% plot(t/T0,p_RectCaller_Samples*sqrt(T0),'red');
-plot(t/T0,p_Ambiguity_Samples*sqrt(T0),'yellow');
-xlim([-3 3]);
-ylabel('p(t)');
-xlabel('Normalized Time, t/T0');
+% % plot(t/T0,p_RectCaller_Samples*sqrt(T0),'red');
+% plot(t/T0,p_Ambiguity_Samples*sqrt(T0),'yellow');
+% xlim([-3 3]);
+% ylabel('p(t)');
+% xlabel('Normalized Time, t/T0');
 % legend({'PHYDYAS','RRC','Hermite','Rectangular'});
 
 %% Check orthogonality
-l1 = 1;
-l2 = 4;
+T0  = 1/F; % Frame interval
+l1 = 0;
+l2 = 0;
 k1 = 0;
-k2 = 0;
-p_OrFcn = @(t) p_Ambiguity(t,T0,k1,k2,l1,l2,F);
-loBound = min(k1,k2)*T0-T0/2;
-upBound = max(k1,k2)*T0+T0/2;
-Result = integral(p_OrFcn,loBound,upBound);
-fprintf('Result = %.8f\n',Result)
+l2list=0:10;
+k2list = 0:10;
+% k2 = 0;
+for k2i = 1:length(k2list)
+    for l2i=1:length(l2list)
+        l2 = l2list(l2i);
+        k2=k2list(k2i);
+        p_OrFcn = @(t) p_Ambiguity(t,T0,k1,k2,l1,l2,F);
+        loBound = min(k1,k2)*T0-T0*2;
+        upBound = max(k1,k2)*T0+T0*2;
+        Result(k2i,l2i) = integral(p_OrFcn,loBound,upBound);
+    end
+    % fprintf('Result = %.8f\n',Result)
+end
+figure;
+[X,Y]= meshgrid(k2list,l2list);
+figure;
+mesh(X,Y,abs(Result));
+figure;
+imshow(abs(Result))
+figure;
+stem(abs(Result))
+max(abs(Result))
