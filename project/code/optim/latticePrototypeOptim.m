@@ -24,8 +24,8 @@ convProb = optimproblem('Objective',objExpr,'Constraints',minConstr>=0);
 init = theta0.theta;
 optim = sol.theta;
 initResult = PStopMax(init);
-fprintf('The initial value = %d\n',)
-fprintf('The final value = %d\n',)
+% fprintf('The initial value = %d\n',)
+% fprintf('The final value = %d\n',)
 % Initial
 GInit(1:M/2) = cos(init);
 if isrow(GInit)
