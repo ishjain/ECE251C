@@ -1,8 +1,9 @@
 %% F-OFDM vs. OFDM Modulation
-clc
-clf
+% clc
+% clf
 close all
-clearvars
+
+% clearvars
 
 s = rng(211);       % Set RNG state for repeatability
 
@@ -16,22 +17,31 @@ rbSize = 12;             % Number of subcarriers per resource block
 cpLen = 72;              % Cyclic prefix length in samples
 
 bitsPerSubCarrier = 6;   % 2: QPSK, 4: 16QAM, 6: 64QAM, 8: 256QAM
-snrdB = 18;              % SNR in dB
+% snrdB = 18;              % SNR in dB
 
+snrlist = 18;%1:2:20;
+for si = 1:length(snrlist)
+snrdB = snrlist(si);
+clear hh ff USout fout hout RxSymbolsCos
 % QAM Symbol mapper
 qamMapper = comm.RectangularQAMModulator( ...
     'ModulationOrder', 2^bitsPerSubCarrier, 'BitInput', true, ...
     'NormalizationMethod', 'Average power');
+
+
+
 
 % Generate data symbols
 numDataCarriers = numRBs*rbSize;    % number of data subcarriers in subband
 bitsIn = randi([0 1], bitsPerSubCarrier*numDataCarriers, 1);
 symbolsIn = qamMapper(bitsIn);
 
-% Pack data into an OFDM symbol 
+%% OFDM Tx
+%         takes symbolsIn (600x1) and returns symbolsIn (1096x1)
+% Pack data into an OFDM symbol
 offset = (numFFT-numDataCarriers)/2; % for band center
 symbolsInOFDM = [zeros(offset,1); symbolsIn; ...
-                 zeros(numFFT-offset-numDataCarriers,1)];
+    zeros(numFFT-offset-numDataCarriers,1)];
 ifftOut = ifft(ifftshift(symbolsInOFDM));
 
 % Prepend cyclic prefix
@@ -64,8 +74,27 @@ end
 txSigCos = sum(fout);
 txSigCos = txSigCos(1:numFFT*2*m); % Keep only the nonzero samples
 
-%% Ideal Channel
-rxSigCos = [0,txSigCos]; % Just a delay
+
+%% Channel
+
+% Add WGN
+rxSig = awgn(txSigOFDM, snrdB, 'measured');
+rxSigCos = awgn(txSigCos, snrdB, 'measured');
+
+rxSigCos = [0,rxSigCos];
+% rxSigCos = [0,txSigCos]; % Just a delay
+
+%% OFDM Receiver
+% takes rxSig (1096x1) and return dataRxSymbols (600x1)
+% Remove cyclic prefix
+rxSymbol = rxSig(cpLen+1:end);
+
+% Perform FFT
+RxSymbols = fftshift(fft(rxSymbol));
+
+% Select data subcarriers
+dataRxSymbols = RxSymbols(offset+(1:numDataCarriers));
+
 
 %% Cosine Modulated TMUX Receiver
 for idx = 1:numFFT
@@ -74,7 +103,82 @@ for idx = 1:numFFT
 end
 dataRxSymbolsCos = RxSymbolsCos(1:numDataCarriers,5); % Select the 5th column to account for the delay
 
-% Compute peak-to-average-power ratio (PAPR)
+
+
+% Plot received symbols constellation
+switch bitsPerSubCarrier
+    case 2  % QPSK
+        refConst = qammod((0:3).', 4, 'UnitAveragePower', true);
+    case 4  % 16QAM
+        refConst = qammod((0:15).', 16,'UnitAveragePower', true);
+    case 6  % 64QAM
+        refConst = qammod((0:63).', 64,'UnitAveragePower', true);
+    case 8  % 256QAM
+        refConst = qammod((0:255).', 256,'UnitAveragePower', true);
+end
+% constDiagRx = comm.ConstellationDiagram( ...
+%     'ShowReferenceConstellation', true, ...
+%     'ReferenceConstellation', refConst, ...
+%     'Position', figposition([20 15 30 40]), ...
+%     'EnableMeasurements', true, ...
+%     'MeasurementInterval', length(dataRxSymbols), ...
+%     'Title', 'OFDM Demodulated Symbols', ...
+%     'Name', 'OFDM Reception', ...
+%     'XLimits', [-1.5 1.5], 'YLimits', [-1.5 1.5]);
+% constDiagRx(dataRxSymbols);
+% 
+% constDiagRx2 = comm.ConstellationDiagram( ...
+%     'ShowReferenceConstellation', true, ...
+%     'ReferenceConstellation', refConst, ...
+%     'Position', figposition([20 15 30 40]), ...
+%     'EnableMeasurements', true, ...
+%     'MeasurementInterval', length(dataRxSymbols), ...
+%     'Title', 'Cos Demodulated Symbols', ...
+%     'Name', 'Cos Reception', ...
+%     'XLimits', [-1.5 1.5], 'YLimits', [-1.5 1.5]);
+% constDiagRx2(dataRxSymbolsCos);
+
+
+% Channel equalization is not necessary here as no channel is modeled
+
+%% Demapping and BER computation
+qamDemod = comm.RectangularQAMDemodulator('ModulationOrder', ...
+    2^bitsPerSubCarrier, 'BitOutput', true, ...
+    'NormalizationMethod', 'Average power');
+BER = comm.ErrorRate;
+
+% Perform hard decision and measure errors
+rxBits = qamDemod(dataRxSymbols);
+ber = BER(bitsIn, rxBits);
+
+%% BER for Cos
+% Perform hard decision and measure errors
+rxBitsCos = qamDemod(dataRxSymbolsCos);
+berCos = BER(bitsIn, rxBitsCos);
+
+%% Display and plots
+disp(['OFDM Reception, BER = ' num2str(ber(1)) ' at SNR = ' ...
+    num2str(snrdB) ' dB']);
+disp(['COS Reception, BER = ' num2str(berCos(1)) ' at SNR = ' ...
+    num2str(snrdB) ' dB']);
+
+berall(si,:) = [ber(1), berCos(1)];
+end
+
+save2file=0;
+if(save2file)
+save('figures/ber-snr_64QAM_M16_m1.mat','berall', 'snrlist');
+end
+%%plot BER
+
+figure;
+semilogy(snrlist, berall(:,1))
+hold on
+semilogy(snrlist, berall(:,2))
+l=legend('OFDM', 'Cos TMux');
+xlabel('SNR dB'); ylabel('BER')
+
+%% Compute peak-to-average-power ratio (PAPR)
 PAPR = comm.CCDF('PAPROutputPort', true, 'PowerUnits', 'dBW');
 [~,~,paprCosTMUX] = PAPR(txSigCos.');
 disp(['Peak-to-Average-Power-Ratio for Cosine modulated TMUX = ' num2str(paprCosTMUX) ' dB']);
@@ -96,73 +200,27 @@ txSigOFDMPlt = txSigOFDM/sqrt(mean(abs(txSigOFDM.^2)));
 txSigCosPlt = txSigCos/sqrt(mean(abs(txSigCos.^2)));
 % Plot power spectral density (PSD) for OFDM signal
 [psdOFDM,fOFDM] = periodogram(txSigOFDMPlt, rectwin(length(txSigOFDM)), 20000, ...
-                      1, 'centered'); 
+    1, 'centered');
 [psdCos,fCos] = periodogram(txSigCosPlt, rectwin(length(txSigCos)), ...
-                      20000, 1, 'centered');
-hFig1 = figure('Position', figposition([46 15 30 30])); 
-plot(fOFDM,pow2db(psdOFDM)); 
+    20000, 1, 'centered');
+
+if(save2file)
+   save('figures/PSD_64QAM_M1024_m2.mat', 'psdCos', 'psdOFDM', 'fOFDM', 'fCos') 
+end
+
+hFig1 = figure('Position', figposition([46 15 30 30]));
+plot(fOFDM,pow2db(psdOFDM));
 hold on
-plot(fCos,pow2db(psdCos)); 
+plot(fCos,pow2db(psdCos));
 hold off
 grid on
 % xlim([-0.5, 0.5])
 axis([-0.5 0.5 -120 10]);
-xlabel('Normalized frequency'); 
+xlabel('Normalized frequency');
 % ylabel('PSD (dBW/Hz)')
 ylabel('Power/frequency')
 legend('OFDM','Cosine modulated TMUX')
 title(['PSD Comparison (' num2str(numRBs*rbSize) ' Subcarriers)'])
-
-%% OFDM Receiver with No Channel
-
-% Add WGN
-rxSig = awgn(txSigOFDM, snrdB, 'measured');
-
-% Remove cyclic prefix
-rxSymbol = rxSig(cpLen+1:end);
-
-% Perform FFT 
-RxSymbols = fftshift(fft(rxSymbol));
-
-% Select data subcarriers
-dataRxSymbols = RxSymbols(offset+(1:numDataCarriers));
-
-% Plot received symbols constellation
-switch bitsPerSubCarrier
-    case 2  % QPSK
-        refConst = qammod((0:3).', 4, 'UnitAveragePower', true);
-    case 4  % 16QAM
-        refConst = qammod((0:15).', 16,'UnitAveragePower', true);
-    case 6  % 64QAM
-        refConst = qammod((0:63).', 64,'UnitAveragePower', true);
-    case 8  % 256QAM
-        refConst = qammod((0:255).', 256,'UnitAveragePower', true);
-end
-constDiagRx = comm.ConstellationDiagram( ...
-    'ShowReferenceConstellation', true, ...
-    'ReferenceConstellation', refConst, ...
-    'Position', figposition([20 15 30 40]), ...
-    'EnableMeasurements', true, ...
-    'MeasurementInterval', length(dataRxSymbols), ...
-    'Title', 'OFDM Demodulated Symbols', ...
-    'Name', 'OFDM Reception', ...
-    'XLimits', [-1.5 1.5], 'YLimits', [-1.5 1.5]);
-constDiagRx(dataRxSymbols);
-
-% Channel equalization is not necessary here as no channel is modeled
-
-% Demapping and BER computation
-qamDemod = comm.RectangularQAMDemodulator('ModulationOrder', ...
-    2^bitsPerSubCarrier, 'BitOutput', true, ...
-    'NormalizationMethod', 'Average power');
-BER = comm.ErrorRate;
-
-% Perform hard decision and measure errors
-rxBits = qamDemod(dataRxSymbols);
-ber = BER(bitsIn, rxBits);
-
-disp(['OFDM Reception, BER = ' num2str(ber(1)) ' at SNR = ' ...
-    num2str(snrdB) ' dB']);
 
 % Restore RNG state
 rng(s);

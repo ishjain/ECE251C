@@ -5,7 +5,7 @@ BERanalysisTx;
 
 % Rx processing params
 FFT_OFFSET                    = 0;          % Number of CP samples to use in FFT (on average)
-SNR                           = 10;         %dB
+SNR                           = 30;         %dB
 %%--Future: Add a loop in SNR and plot BER-SNR curve
 
 rx_vec_air_temp =  tx_vec_air ;
@@ -61,8 +61,14 @@ payload_vec = raw_rx_dec(payload_ind : end);
 
 if(doFBMC) %doFBMC defined in BERanalysisTx.m
     
-    % take payload_vec (e.g 1x(80x100) for OFDM) and return syms_eq_mat (64x100 for OFDM)
+    % take payload_vec (e.g 1x(80x100) for OFDM) and return rx_syms (1x6400 for OFDM)
+    for idx = 1:M
+        hout(idx,:) = [0,conv(tx,h(idx,:))];
+        xHat(idx,:) = downsample(hout(idx,:),M);
+    end
+    xRec = xHat(:,3:end-2);
     
+    rx_syms=xRec;
     
     
 else %do OFDM
@@ -78,15 +84,15 @@ else %do OFDM
     % Equalize (zero-forcing, just divide by complex chan estimates)
     syms_eq_mat = syms_f_mat ./ repmat(rx_H_est.', 1, N_OFDM_SYMS);
     
+    % Extract useful symbols (removing pilot symbol and unloaded symbols)
+    payload_syms_mat = syms_eq_mat(SC_IND_DATA, :);
     
+    
+    rx_syms = reshape(payload_syms_mat, 1, N_DATA_SYMS);
 end
 
-% Extract useful symbols (removing pilot symbol and unloaded symbols)
-payload_syms_mat = syms_eq_mat(SC_IND_DATA, :);
 
 %% Demodulate
-rx_syms = reshape(payload_syms_mat, 1, N_DATA_SYMS);
-
 demod_fcn_bpsk = @(x) double(real(x)>0);
 demod_fcn_qpsk = @(x) double(2*(real(x)>0) + 1*(imag(x)>0));
 demod_fcn_16qam = @(x) (8*(real(x)>0)) + (4*(abs(real(x))<0.6325)) + (2*(imag(x)>0)) + (1*(abs(imag(x))<0.6325));
@@ -128,7 +134,7 @@ cf = cf + 1;
 
 rx_H_est_plot = repmat(complex(NaN,NaN),1,length(rx_H_est));
 rx_H_est_plot(SC_IND_DATA) = rx_H_est(SC_IND_DATA);
-rx_H_est_plot(SC_IND_PILOTS) = rx_H_est(SC_IND_PILOTS);
+
 
 x = (20/N_SC) * (-(N_SC/2):(N_SC/2 - 1));
 
