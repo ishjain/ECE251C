@@ -12,14 +12,21 @@ s = rng(211);       % Set RNG state for repeatability
 % modified to explore their impact on the system.
 
 numFFT = 1024;           % Number of FFT points
-numRBs = 50;             % Number of resource blocks
-rbSize = 12;             % Number of subcarriers per resource block
-cpLen = 72;              % Cyclic prefix length in samples
-
+switch numFFT
+    case 1024
+        numRBs = 50;             % Number of resource blocks
+        rbSize = 12;             % Number of subcarriers per resource block
+        cpLen = 72;              % Cyclic prefix length in samples
+    case 16
+        numRBs = 5;             % Number of resource blocks
+        rbSize = 2;             % Number of subcarriers per resource block
+        cpLen = 4;              % Cyclic prefix length in samples
+end
 bitsPerSubCarrier = 6;   % 2: QPSK, 4: 16QAM, 6: 64QAM, 8: 256QAM
 % snrdB = 18;              % SNR in dB
 
-snrlist = 18;%1:2:20;
+for iter=1:1
+snrlist = 1:2:20;
 for si = 1:length(snrlist)
 snrdB = snrlist(si);
 clear hh ff USout fout hout RxSymbolsCos
@@ -157,17 +164,18 @@ rxBitsCos = qamDemod(dataRxSymbolsCos);
 berCos = BER(bitsIn, rxBitsCos);
 
 %% Display and plots
-disp(['OFDM Reception, BER = ' num2str(ber(1)) ' at SNR = ' ...
-    num2str(snrdB) ' dB']);
-disp(['COS Reception, BER = ' num2str(berCos(1)) ' at SNR = ' ...
-    num2str(snrdB) ' dB']);
+% disp(['OFDM Reception, BER = ' num2str(ber(1)) ' at SNR = ' ...
+%     num2str(snrdB) ' dB']);
+% disp(['COS Reception, BER = ' num2str(berCos(1)) ' at SNR = ' ...
+%     num2str(snrdB) ' dB']);
 
-berall(si,:) = [ber(1), berCos(1)];
+beralliter(si,:,iter) = [ber(1), berCos(1)];
 end
-
+end
+berall = mean(beralliter,3);
 save2file=0;
 if(save2file)
-save('figures/ber-snr_64QAM_M16_m1.mat','berall', 'snrlist');
+save('figures/ber-snr_64QAM_M16_m2.mat','berall', 'snrlist');
 end
 %%plot BER
 
@@ -205,7 +213,7 @@ txSigCosPlt = txSigCos/sqrt(mean(abs(txSigCos.^2)));
     20000, 1, 'centered');
 
 if(save2file)
-   save('figures/PSD_64QAM_M1024_m2.mat', 'psdCos', 'psdOFDM', 'fOFDM', 'fCos') 
+   save('figures/PSD_64QAM_M16_m1.mat', 'psdCos', 'psdOFDM', 'fOFDM', 'fCos') 
 end
 
 hFig1 = figure('Position', figposition([46 15 30 30]));
