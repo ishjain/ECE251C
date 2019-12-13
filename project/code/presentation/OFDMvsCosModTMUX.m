@@ -26,7 +26,7 @@ bitsPerSubCarrier = 6;   % 2: QPSK, 4: 16QAM, 6: 64QAM, 8: 256QAM
 % snrdB = 18;              % SNR in dB
 
 for iter=1:1
-snrlist = 1:2:20;
+snrlist = 18;%1:2:20;
 for si = 1:length(snrlist)
 snrdB = snrlist(si);
 clear hh ff USout fout hout RxSymbolsCos
@@ -81,6 +81,12 @@ end
 txSigCos = sum(fout);
 txSigCos = txSigCos(1:numFFT*2*m); % Keep only the nonzero samples
 
+%have three symbols to address leakage issue.
+txSigCos = [txSigCos zeros(1,2*numFFT)] + ...
+    [zeros(1,numFFT) txSigCos zeros(1,numFFT)] + ...
+    [zeros(1,2*numFFT) txSigCos];
+% txSigCos = txSigCos(1,1:4*numFFT);
+txSigCos = txSigCos(1,numFFT+(1:4*numFFT));
 
 %% Channel
 
@@ -164,10 +170,10 @@ rxBitsCos = qamDemod(dataRxSymbolsCos);
 berCos = BER(bitsIn, rxBitsCos);
 
 %% Display and plots
-% disp(['OFDM Reception, BER = ' num2str(ber(1)) ' at SNR = ' ...
-%     num2str(snrdB) ' dB']);
-% disp(['COS Reception, BER = ' num2str(berCos(1)) ' at SNR = ' ...
-%     num2str(snrdB) ' dB']);
+disp(['OFDM Reception, BER = ' num2str(ber(1)) ' at SNR = ' ...
+    num2str(snrdB) ' dB']);
+disp(['COS Reception, BER = ' num2str(berCos(1)) ' at SNR = ' ...
+    num2str(snrdB) ' dB']);
 
 beralliter(si,:,iter) = [ber(1), berCos(1)];
 end
