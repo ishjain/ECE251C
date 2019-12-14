@@ -23,6 +23,8 @@ l=legend('M=16 OFDM', 'M=1024 OFDM','M=16 Cos', 'M=1024 Cos');
 xlabel('SNR (dB)'); ylabel('BER')
 set(gca, 'fontsize',13)
 set(l, 'fontsize', 12);
+set(gcf,'PaperUnits', 'inches', 'paperposition', [0 0 6 4])
+
 
 saveas(gcf, 'figures/ber-snr_64QAM_impactM_m2.png' )
 saveas(gcf, 'figures/ber-snr_64QAM_impactM_m2.svg' )
@@ -53,7 +55,14 @@ ylabel('Power/frequency (dBW/Hz)')
 l=legend('M=16', 'M=1024');
 set(gca, 'fontsize',13)
 set(l, 'fontsize', 12, 'location', 'south');
+set(gcf,'PaperUnits', 'inches', 'paperposition', [0 0 6 4])
 
+
+save2file=0;
+if(save2file)
 saveas(gcf, 'figures/PSD_64QAM_impactM_m2.png' )
 saveas(gcf, 'figures/PSD_64QAM_impactM_m2.svg' )
+saveas(gcf, 'figures/PSD_64QAM_impactM_m2.pdf' )
+!pdfcrop figures/PSD_64QAM_impactM_m2.pdf figures/PSD_64QAM_impactM_m2.pdf
+end
 % title(['PSD Comparison (' num2str(numRBs*rbSize) ' Subcarriers)'])

@@ -21,10 +21,18 @@ axis([-0.5 0.5 -180 10]);
 xlabel('Normalized frequency');
 % ylabel('PSD (dBW/Hz)')
 ylabel('Power/frequency (dBW/Hz)')
-l=legend('OFDM','Cos TMUX','FBMC');
+l=legend('OFDM','CMFB','FBMC');
 set(gca, 'fontsize',13)
 set(l, 'fontsize', 12, 'location', 'south');
+set(gcf,'PaperUnits', 'inches', 'paperposition', [0 0 6 4])
 
+
+
+save2file=0;
+if(save2file)
 saveas(gcf, 'figures/PSD_64QAM_M1024_m2.png' )
 saveas(gcf, 'figures/PSD_64QAM_M1024_m2.svg' )
+saveas(gcf, 'figures/PSD_64QAM_M1024_m2.pdf' )
+!pdfcrop figures/PSD_64QAM_M1024_m2.pdf figures/PSD_64QAM_M1024_m2.pdf
+end
 % title(['PSD Comparison (' num2str(numRBs*rbSize) ' Subcarriers)'])

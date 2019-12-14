@@ -26,7 +26,7 @@ bitsPerSubCarrier = 6;   % 2: QPSK, 4: 16QAM, 6: 64QAM, 8: 256QAM
 % snrdB = 18;              % SNR in dB
 
 for iter=1:1
-snrlist = 18;%1:2:20;
+snrlist = 1:2:20;
 for si = 1:length(snrlist)
 snrdB = snrlist(si);
 clear hh ff USout fout hout RxSymbolsCos
@@ -44,7 +44,7 @@ bitsIn = randi([0 1], bitsPerSubCarrier*numDataCarriers, 1);
 symbolsIn = qamMapper(bitsIn);
 
 %% OFDM Tx
-%         takes symbolsIn (600x1) and returns symbolsIn (1096x1)
+% takes symbolsIn (600x1) and returns symbolsIn (1096x1)
 % Pack data into an OFDM symbol
 offset = (numFFT-numDataCarriers)/2; % for band center
 symbolsInOFDM = [zeros(offset,1); symbolsIn; ...
@@ -59,8 +59,34 @@ txSigOFDM = [ifftOut(end-cpLen+1:end); ifftOut];
 m = 2;
 N = 2*m*numFFT-1;
 % Prototype filter definition
-load(sprintf('prototype (M = %d, m = %d).mat',numFFT,m))
+% load(sprintf('prototype/prototype (M = %d, m = %d).mat',numFFT,m))
+load(sprintf('prototype/prototype from Kaiser (M = %d, m = %d).mat',numFFT,m))
+p0=p0(200,:);
 p0 = p0/sqrt(2*numFFT); % The prototype filter
+
+% %%--plot spectrum for prototype filter
+% idx1 = 1;
+% idx2 = 5;
+% idx3 = 10;
+% hfvt = fvtool(p0(idx1,:)./sum(p0(idx1,:)));
+% addfilter(hfvt, p0(idx2,:)./sum(p0(idx2,:)))
+% addfilter(hfvt, p0(idx3,:)./sum(p0(idx3,:)))
+% addfilter(hfvt, p0(idx3,:)./sum(p0(idx3,:)))
+% titleStr = sprintf('Filter Comparison (M = %d, m = %d)',M,m);
+% title(titleStr);
+% % xticks([0:1/(M/2):1])
+% % for i = 1:M/2
+% %     k = i-1;
+% %     names(i) = sprintf("%d*2\\pi/M",k);
+% % end
+% % names = cellstr(names);
+% % set(gca,'xtick',[0:1/(M/2):1],'xticklabel',names)
+% xlabel('Normalized Frequency (rad/sample)')
+% legend(hfvt, sprintf('The prototype filter \\alpha = %d',alpha(idx1)), sprintf('The prototype filter \\alpha = %d',alpha(idx2)), sprintf('The prototype filter \\alpha = %d',alpha(idx3)));
+% 
+% 
+
+
 if iscolumn(p0)
     p0 = p0.';
 end
@@ -82,11 +108,13 @@ txSigCos = sum(fout);
 txSigCos = txSigCos(1:numFFT*2*m); % Keep only the nonzero samples
 
 %have three symbols to address leakage issue.
-txSigCos = [txSigCos zeros(1,2*numFFT)] + ...
-    [zeros(1,numFFT) txSigCos zeros(1,numFFT)] + ...
-    [zeros(1,2*numFFT) txSigCos];
+txSigCos = [txSigCos zeros(1,4*numFFT)] + ...
+   [zeros(1,1*numFFT) txSigCos zeros(1,3*numFFT)] + ...
+    [zeros(1,2*numFFT) txSigCos zeros(1,2*numFFT)] + ...
+    [zeros(1,3*numFFT) txSigCos zeros(1,numFFT)] + ...
+    [zeros(1,4*numFFT) txSigCos];
 % txSigCos = txSigCos(1,1:4*numFFT);
-txSigCos = txSigCos(1,numFFT+(1:4*numFFT));
+txSigCos = txSigCos(1,2*numFFT+(1:4*numFFT));
 
 %% Channel
 
@@ -181,7 +209,7 @@ end
 berall = mean(beralliter,3);
 save2file=0;
 if(save2file)
-save('figures/ber-snr_64QAM_M16_m2.mat','berall', 'snrlist');
+save('figures/ber-snr_64QAM_M1024_m2.mat','berall', 'snrlist');
 end
 %%plot BER
 

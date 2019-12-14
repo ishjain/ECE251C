@@ -16,11 +16,17 @@ semilogy(snrlistFBMC, berFBMC,'-h' ,  'MarkerSize',8,'linewidth',2)
 grid on;
 
 
-l=legend('OFDM', 'Cos TMux', 'FBMC');
+l=legend('OFDM', 'CMFB', 'FBMC');
 xlabel('SNR (dB)'); ylabel('BER')
 set(gca, 'fontsize',13)
 set(l, 'fontsize', 12);
+set(gcf,'PaperUnits', 'inches', 'paperposition', [0 0 6 4])
 
+
+save2file=0;
+if(save2file)
 saveas(gcf, 'figures/ber-snr_64QAM_M1024_m2.png' )
 saveas(gcf, 'figures/ber-snr_64QAM_M1024_m2.svg' )
-
+saveas(gcf, 'figures/ber-snr_64QAM_M1024_m2.pdf' )
+!pdfcrop figures/ber-snr_64QAM_M1024_m2.pdf figures/ber-snr_64QAM_M1024_m2.pdf
+end

@@ -5,7 +5,7 @@ close all
 clearvars
 
 %% Prototype filter parameter definition
-M = 16; % The number of channels
+M = 1024; % The number of channels
 m = 1; % The length of each polyphase component
 N = 2*m*M-1; % The order of the prototype filter
 L = N+1; % The length of the prototype filter
@@ -35,7 +35,10 @@ names = cellstr(names);
 set(gca,'xtick',[0:1/(M/2):1],'xticklabel',names)
 xlabel('Normalized Frequency (rad/sample)')
 legend(hfvt, 'The prototype filter', 'The Kaiser window', 'The rectangular window');
-
+xlim([0,2*2*pi/M])
 %% Export the prototype filter
+savefile=0;
+if(savefile)
 save(sprintf("prototype (M = %d, m = %d).mat",M,m),'p0');
 saveas(gca,[titleStr,'.jpg'])
+end
