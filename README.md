@@ -20,3 +20,6 @@ system.
 
 ### Code
 The main code is organized in [/project/code/ECE251C_Team7](/project/code/ECE251C_Team7) repository. Please refer to Readme in that repository.
+
+### Report
+The project report is available [here](/project/code/ECE251C_project_report__Team_7_Ish_Jain_and_Zhaoxin_Hu__FBMC.pdf).
